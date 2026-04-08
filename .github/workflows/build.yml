@@ -36,7 +36,7 @@ jobs:
 
       - name: Install React dependencies
         working-directory: react-app
-        run: npm ci --prefer-offline
+        run: npm install
 
       - name: Build React app
         working-directory: react-app
