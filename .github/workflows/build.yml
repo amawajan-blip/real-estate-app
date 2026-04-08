@@ -32,8 +32,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-          cache-dependency-path: react-app/package-lock.json
+          
 
       - name: Install React dependencies
         working-directory: react-app
