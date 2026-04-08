@@ -22,37 +22,36 @@ jobs:
   # JOB 1: Build React app
   # ─────────────────────────────────────────────────────────────────
   build-react:
-    name: Build React UI
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+  name: Build React UI
+  runs-on: ubuntu-latest
+  steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
 
-      - name: Install React dependencies
-        working-directory: react-app
-        run: npm install
+    - name: Install dependencies (root first)
+      run: npm install
 
-      - name: Build React app
-        working-directory: react-app
-        env:
-          CI: false                # suppress CRA treat-warnings-as-errors
-          GENERATE_SOURCEMAP: false
-          NODE_OPTIONS: --max-old-space-size=4096
-        run: npm run build
+    - name: Install React dependencies
+      working-directory: react-app
+      run: npm install
 
-      - name: Upload React build artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: react-build
-          path: react-app/build/
-          retention-days: 1
+    - name: Build React app
+      working-directory: react-app
+      env:
+        CI: false
+        GENERATE_SOURCEMAP: false
+      run: npm run build
 
+    - name: Upload React build artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: react-build
+        path: react-app/build/
   # ─────────────────────────────────────────────────────────────────
   # JOB 2: Build Windows .exe (needs Visual C++ for better-sqlite3)
   # ─────────────────────────────────────────────────────────────────
