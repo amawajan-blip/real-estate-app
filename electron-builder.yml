@@ -1,0 +1,84 @@
+# electron-builder.yml
+# Standalone electron-builder configuration.
+# This file is the authoritative build config — overrides "build" key in package.json.
+
+appId: app.modir-aqaratek.desktop
+productName: "مدير عقاراتك"
+copyright: "Copyright © 2024 مدير عقاراتك"
+
+asar: true
+asarUnpack:
+  - "**/node_modules/better-sqlite3/**"
+  - "**/node_modules/bindings/**"
+  - "**/node_modules/file-uri-to-path/**"
+
+compression: maximum
+
+directories:
+  output: dist
+  buildResources: assets
+
+files:
+  - electron/**/*
+  - database/**/*
+  - react-app/build/**/*
+  - node_modules/**/*
+  - "!node_modules/*/{CHANGELOG.md,README.md,readme.md}"
+  - "!node_modules/*/{test,__tests__,tests,example,examples}"
+  - "!node_modules/**/*.map"
+  - "!node_modules/@types/**"
+  - "!**/{.DS_Store,.git,.hg,.svn}"
+  - "!**/{npm-debug.log,yarn.lock}"
+
+extraResources:
+  - from: assets/
+    to: assets/
+    filter:
+      - "**/*"
+      - "!*.txt"
+
+# ── Windows ──────────────────────────────────────────────────────────────────
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+    - target: portable
+      arch: [x64]
+  icon: assets/icon.ico
+  requestedExecutionLevel: asInvoker
+  artifactName: "${productName}-Setup-${version}.${ext}"
+
+nsis:
+  oneClick: false
+  allowElevation: true
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: "مدير عقاراتك"
+  installerIcon: assets/icon.ico
+  uninstallerIcon: assets/icon.ico
+  installerHeaderIcon: assets/icon.ico
+  deleteAppDataOnUninstall: false
+  license: LICENSE.txt
+  language: "1025"
+  include: scripts/installer.nsh
+
+portable:
+  artifactName: "${productName}-Portable-${version}.${ext}"
+
+# ── macOS (optional) ─────────────────────────────────────────────────────────
+mac:
+  target: dmg
+  icon: assets/icon.icns
+  category: public.app-category.finance
+
+# ── Linux (optional) ─────────────────────────────────────────────────────────
+linux:
+  target: AppImage
+  icon: assets/icon.png
+  category: Office
+
+# ── Build flags ───────────────────────────────────────────────────────────────
+nodeGypRebuild: false
+buildDependenciesFromSource: false
+npmRebuild: true

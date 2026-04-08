@@ -1,0 +1,208 @@
+name: Build Windows Installer
+
+on:
+  push:
+    branches: [main, master]
+    tags:
+      - 'v*.*.*'
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:          # allow manual trigger from GitHub UI
+
+permissions:
+  contents: write             # needed to create GitHub Releases on tag push
+
+env:
+  NODE_VERSION: '20.x'
+  ELECTRON_CACHE: ${{ github.workspace }}/.cache/electron
+  ELECTRON_BUILDER_CACHE: ${{ github.workspace }}/.cache/electron-builder
+
+jobs:
+  # ─────────────────────────────────────────────────────────────────
+  # JOB 1: Build React app
+  # ─────────────────────────────────────────────────────────────────
+  build-react:
+    name: Build React UI
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: react-app/package-lock.json
+
+      - name: Install React dependencies
+        working-directory: react-app
+        run: npm ci --prefer-offline
+
+      - name: Build React app
+        working-directory: react-app
+        env:
+          CI: false                # suppress CRA treat-warnings-as-errors
+          GENERATE_SOURCEMAP: false
+          NODE_OPTIONS: --max-old-space-size=4096
+        run: npm run build
+
+      - name: Upload React build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: react-build
+          path: react-app/build/
+          retention-days: 1
+
+  # ─────────────────────────────────────────────────────────────────
+  # JOB 2: Build Windows .exe (needs Visual C++ for better-sqlite3)
+  # ─────────────────────────────────────────────────────────────────
+  build-windows:
+    name: Build Windows EXE
+    runs-on: windows-latest
+    needs: build-react
+
+    steps:
+      # ── 1. Checkout ─────────────────────────────────────────────
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # ── 2. Node.js setup ─────────────────────────────────────────
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      # ── 3. Python (required by node-gyp for better-sqlite3) ──────
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # ── 4. Visual Studio Build Tools (node-gyp needs MSVC) ───────
+      - name: Install Visual Studio Build Tools
+        run: |
+          choco install visualstudio2022buildtools --package-parameters "--add Microsoft.VisualStudio.Workload.VCTools --includeRecommended --passive --norestart" -y
+          choco install windows-sdk-10.0 -y
+        shell: powershell
+        continue-on-error: true    # choco might already have it
+
+      # ── 5. Configure npm for native builds ───────────────────────
+      - name: Configure node-gyp
+        run: |
+          npm config set msvs_version 2022
+          npm config set python python3
+        shell: powershell
+
+      # ── 6. Cache Electron binaries ───────────────────────────────
+      - name: Cache Electron
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ env.ELECTRON_CACHE }}
+            ${{ env.ELECTRON_BUILDER_CACHE }}
+          key: electron-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            electron-${{ runner.os }}-
+
+      # ── 7. Install root (Electron) dependencies ──────────────────
+      - name: Install root dependencies
+        run: npm ci
+        env:
+          npm_config_msvs_version: 2022
+
+      # ── 8. Rebuild better-sqlite3 for Electron ───────────────────
+      - name: Rebuild native modules for Electron
+        run: |
+          $electronVersion = node -e "const e=require('./node_modules/electron/package.json');console.log(e.version)"
+          Write-Host "Rebuilding for Electron $electronVersion"
+          npx electron-rebuild -f -w better-sqlite3 --electron-version $electronVersion
+        shell: powershell
+        env:
+          npm_config_msvs_version: 2022
+
+      # ── 9. Restore React build from previous job ─────────────────
+      - name: Download React build
+        uses: actions/download-artifact@v4
+        with:
+          name: react-build
+          path: react-app/build/
+
+      # ── 10. Generate placeholder icon if missing ─────────────────
+      - name: Generate placeholder icon (if missing)
+        run: |
+          if (-not (Test-Path "assets/icon.ico")) {
+            Write-Host "No icon.ico found — generating placeholder..."
+            node scripts/generate-icon-ci.js
+          } else {
+            Write-Host "icon.ico found — skipping generation."
+          }
+        shell: powershell
+
+      # ── 11. Package the Electron app ─────────────────────────────
+      - name: Build Electron app (Windows)
+        run: npx electron-builder --win --x64 --publish never
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+          WIN_CSC_LINK: ''
+          ELECTRON_CACHE: ${{ env.ELECTRON_CACHE }}
+          ELECTRON_BUILDER_CACHE: ${{ env.ELECTRON_BUILDER_CACHE }}
+          DEBUG: "electron-builder"
+          NODE_OPTIONS: --max-old-space-size=4096
+
+      # ── 12. List dist output ─────────────────────────────────────
+      - name: List dist folder
+        run: |
+          Write-Host "=== /dist contents ==="
+          Get-ChildItem -Path dist -Recurse -Include *.exe,*.yml,*.yaml,*.json | Select-Object FullName, Length
+        shell: powershell
+
+      # ── 13. Upload NSIS installer as artifact ────────────────────
+      - name: Upload NSIS Installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
+          path: |
+            dist/**/*.exe
+            dist/latest.yml
+          if-no-files-found: error
+          retention-days: 30
+
+      # ── 14. Upload Portable EXE as separate artifact ─────────────
+      - name: Upload Portable EXE
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-portable
+          path: dist/**/*Portable*.exe
+          if-no-files-found: warn
+          retention-days: 30
+
+      # ── 15. Create GitHub Release on version tag push ─────────────
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/**/*.exe
+            dist/latest.yml
+          draft: false
+          prerelease: false
+          name: "مدير عقاراتك v${{ github.ref_name }}"
+          body: |
+            ## مدير عقاراتك | Real Estate Manager ${{ github.ref_name }}
+
+            ### Download
+            - **`*-Setup-*.exe`** — Full installer (recommended)
+            - **`*-Portable-*.exe`** — No installation needed
+
+            ### Requirements
+            - Windows 10 / 11 (64-bit)
+            - No internet connection required
+
+            ### What's New
+            See [CHANGELOG.md](CHANGELOG.md) for details.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

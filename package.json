@@ -1,0 +1,107 @@
+{
+  "name": "modir-aqaratek",
+  "productName": "مدير عقاراتك",
+  "version": "1.0.0",
+  "description": "مدير عقاراتك | Real Estate Manager - Desktop Application",
+  "main": "electron/main.js",
+  "homepage": "./",
+  "author": {
+    "name": "مدير عقاراتك",
+    "email": "support@modir-aqaratek.app"
+  },
+  "license": "MIT",
+  "scripts": {
+    "react:start": "cd react-app && npm start",
+    "react:build": "cd react-app && npm run build",
+    "electron:dev": "concurrently \"npm run react:start\" \"wait-on http://localhost:3000 && cross-env NODE_ENV=development electron .\"",
+    "electron:prod": "npm run react:build && electron .",
+    "rebuild": "electron-rebuild -f -w better-sqlite3",
+    "postinstall": "electron-builder install-app-deps",
+    "build": "npm run react:build",
+    "dist": "npm run react:build && electron-builder --win --x64",
+    "dist:all": "npm run react:build && electron-builder --win --mac --linux",
+    "dist:dir": "npm run react:build && electron-builder --win --x64 --dir"
+  },
+  "keywords": ["electron", "real-estate", "accounting", "desktop", "arabic"],
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "cross-env": "^7.0.3",
+    "electron": "^28.3.3",
+    "electron-builder": "^24.13.3",
+    "electron-rebuild": "^3.2.9",
+    "wait-on": "^7.2.0"
+  },
+  "dependencies": {
+    "better-sqlite3": "^9.4.3",
+    "electron-store": "^8.1.0",
+    "electron-updater": "^6.3.4"
+  },
+  "build": {
+    "appId": "app.modir-aqaratek.desktop",
+    "productName": "مدير عقاراتك",
+    "copyright": "Copyright © 2024 مدير عقاراتك",
+    "asar": true,
+    "asarUnpack": [
+      "**/node_modules/better-sqlite3/**",
+      "**/node_modules/bindings/**",
+      "**/node_modules/file-uri-to-path/**"
+    ],
+    "compression": "maximum",
+    "directories": {
+      "output": "dist",
+      "buildResources": "assets"
+    },
+    "files": [
+      "electron/**/*",
+      "database/**/*",
+      "react-app/build/**/*",
+      "node_modules/**/*",
+      "!node_modules/*/{CHANGELOG.md,README.md,readme.md,readme}",
+      "!node_modules/*/{test,__tests__,tests,example,examples}",
+      "!node_modules/**/*.map",
+      "!node_modules/@types/**",
+      "!**/*.{iml,hprof,orig,pyc,pyo,rbc,swp}",
+      "!**/{.DS_Store,.git,.hg,.svn,CVS}",
+      "!**/{__pycache__,thumbs.db,.flowconfig,.idea,.vs}",
+      "!**/{appveyor.yml,.travis.yml,circle.yml}",
+      "!**/{npm-debug.log,yarn.lock,.yarn-integrity}"
+    ],
+    "extraResources": [
+      {
+        "from": "assets/",
+        "to": "assets/",
+        "filter": ["**/*", "!*.txt"]
+      }
+    ],
+    "win": {
+      "target": [
+        { "target": "nsis",     "arch": ["x64"] },
+        { "target": "portable", "arch": ["x64"] }
+      ],
+      "icon": "assets/icon.ico",
+      "requestedExecutionLevel": "asInvoker",
+      "artifactName": "${productName}-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowElevation": true,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "مدير عقاراتك",
+      "installerIcon": "assets/icon.ico",
+      "uninstallerIcon": "assets/icon.ico",
+      "installerHeaderIcon": "assets/icon.ico",
+      "deleteAppDataOnUninstall": false,
+      "license": "LICENSE.txt",
+      "language": "1025",
+      "include": "scripts/installer.nsh"
+    },
+    "portable": {
+      "artifactName": "${productName}-Portable-${version}.${ext}"
+    },
+    "nodeGypRebuild": false,
+    "buildDependenciesFromSource": false,
+    "npmRebuild": true
+  }
+}
