@@ -1,0 +1,104 @@
+name: Build Windows EXE
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      # ── 1. Checkout ──────────────────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── 2. Node.js ──────────────────────────────────────────────────────────
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      # ── 3. Python (needed by node-gyp / better-sqlite3) ──────────────────
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # ── 4. Install root dependencies ─────────────────────────────────────
+      - name: Install root dependencies
+        run: npm install --no-audit --prefer-offline
+        env:
+          npm_config_build_from_source: false
+
+      # ── 5. Install react-app dependencies ───────────────────────────────
+      - name: Install React dependencies
+        working-directory: react-app
+        run: npm install --no-audit --prefer-offline
+
+      # ── 6. Build React (CI=false suppresses warning-as-error) ────────────
+      - name: Build React app
+        working-directory: react-app
+        run: npm run build
+        env:
+          CI: "false"
+          GENERATE_SOURCEMAP: "false"
+
+      # ── 7. Rebuild native modules for Electron ───────────────────────────
+      - name: Rebuild native modules
+        run: npx electron-rebuild -f -w better-sqlite3
+        continue-on-error: true   # non-fatal if sqlite3 is optional
+
+      # ── 8. Generate placeholder icons if missing ─────────────────────────
+      - name: Ensure assets directory exists
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path assets | Out-Null
+          # Create a minimal valid ICO if missing (1×1 white pixel ICO)
+          if (-not (Test-Path "assets/icon.ico")) {
+            $icoBytes = [Convert]::FromBase64String(
+              "AAABAAEAAQEAAAEAGAAoAAAAFgAAABgAAAABAAAAGAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" +
+              "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" +
+              "AAAAAAAAAAAAAAAAAAAAAAAP8AAAAAAA=="
+            )
+            [System.IO.File]::WriteAllBytes("assets/icon.ico", $icoBytes)
+            Write-Host "Created placeholder icon.ico"
+          }
+          if (-not (Test-Path "assets/icon.png")) {
+            Copy-Item "assets/icon.ico" "assets/icon.png" -ErrorAction SilentlyContinue
+          }
+
+      # ── 9. Package with electron-builder ────────────────────────────────
+      - name: Build Electron (Windows NSIS + Portable)
+        run: npx electron-builder --win --x64 --publish never
+        env:
+          # Prevent electron-builder from re-running React build
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+          WIN_CSC_LINK: ""
+
+      # ── 10. List dist folder ────────────────────────────────────────────
+      - name: List build output
+        shell: pwsh
+        run: Get-ChildItem -Recurse dist | Select-Object FullName, Length
+
+      # ── 11. Upload installer EXE ────────────────────────────────────────
+      - name: Upload NSIS installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
+          path: dist/*Setup*.exe
+          if-no-files-found: warn
+          retention-days: 30
+
+      # ── 12. Upload portable EXE ─────────────────────────────────────────
+      - name: Upload portable EXE
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-portable
+          path: dist/*Portable*.exe
+          if-no-files-found: warn
+          retention-days: 30

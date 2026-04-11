@@ -1,28 +1,26 @@
 {
   "name": "modir-aqaratek",
-  "productName": "مدير عقاراتك",
+  "productName": "Real Estate Manager",
   "version": "1.0.0",
-  "description": "مدير عقاراتك | Real Estate Manager - Desktop Application",
+  "description": "Real Estate Manager - Desktop Application",
   "main": "electron/main.js",
-  "homepage": "./",
   "author": {
-    "name": "مدير عقاراتك",
+    "name": "Real Estate Manager",
     "email": "support@modir-aqaratek.app"
   },
   "license": "MIT",
   "scripts": {
-    "react:start": "cd react-app && npm start",
-    "react:build": "cd react-app && npm run build",
-    "electron:dev": "concurrently \"npm run react:start\" \"wait-on http://localhost:3000 && cross-env NODE_ENV=development electron .\"",
+    "react:build": "cd react-app && cross-env CI=false npm run build",
+    "electron:dev": "concurrently \"cd react-app && npm start\" \"wait-on http://localhost:3000 && cross-env NODE_ENV=development electron .\"",
     "electron:prod": "npm run react:build && electron .",
     "rebuild": "electron-rebuild -f -w better-sqlite3",
     "postinstall": "electron-builder install-app-deps",
-    "build": "npm run react:build",
+    "build": "npm run react:build && electron-builder --win --x64",
     "dist": "npm run react:build && electron-builder --win --x64",
-    "dist:all": "npm run react:build && electron-builder --win --mac --linux",
-    "dist:dir": "npm run react:build && electron-builder --win --x64 --dir"
+    "dist:dir": "npm run react:build && electron-builder --win --x64 --dir",
+    "start": "npm run electron:dev"
   },
-  "keywords": ["electron", "real-estate", "accounting", "desktop", "arabic"],
+  "keywords": ["electron", "real-estate", "accounting", "desktop"],
   "devDependencies": {
     "concurrently": "^8.2.2",
     "cross-env": "^7.0.3",
@@ -38,15 +36,15 @@
   },
   "build": {
     "appId": "app.modir-aqaratek.desktop",
-    "productName": "مدير عقاراتك",
-    "copyright": "Copyright © 2024 مدير عقاراتك",
+    "productName": "Real Estate Manager",
+    "copyright": "Copyright © 2024 Real Estate Manager",
     "asar": true,
     "asarUnpack": [
       "**/node_modules/better-sqlite3/**",
       "**/node_modules/bindings/**",
       "**/node_modules/file-uri-to-path/**"
     ],
-    "compression": "maximum",
+    "compression": "normal",
     "directories": {
       "output": "dist",
       "buildResources": "assets"
@@ -56,15 +54,10 @@
       "database/**/*",
       "react-app/build/**/*",
       "node_modules/**/*",
-      "!node_modules/*/{CHANGELOG.md,README.md,readme.md,readme}",
+      "!node_modules/*/{CHANGELOG.md,README.md,readme.md}",
       "!node_modules/*/{test,__tests__,tests,example,examples}",
       "!node_modules/**/*.map",
-      "!node_modules/@types/**",
-      "!**/*.{iml,hprof,orig,pyc,pyo,rbc,swp}",
-      "!**/{.DS_Store,.git,.hg,.svn,CVS}",
-      "!**/{__pycache__,thumbs.db,.flowconfig,.idea,.vs}",
-      "!**/{appveyor.yml,.travis.yml,circle.yml}",
-      "!**/{npm-debug.log,yarn.lock,.yarn-integrity}"
+      "!node_modules/@types/**"
     ],
     "extraResources": [
       {
@@ -75,7 +68,7 @@
     ],
     "win": {
       "target": [
-        { "target": "nsis",     "arch": ["x64"] },
+        { "target": "nsis", "arch": ["x64"] },
         { "target": "portable", "arch": ["x64"] }
       ],
       "icon": "assets/icon.ico",
@@ -88,14 +81,8 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "مدير عقاراتك",
-      "installerIcon": "assets/icon.ico",
-      "uninstallerIcon": "assets/icon.ico",
-      "installerHeaderIcon": "assets/icon.ico",
-      "deleteAppDataOnUninstall": false,
-      "license": "LICENSE.txt",
-      "language": "1025",
-      "include": "scripts/installer.nsh"
+      "shortcutName": "Real Estate Manager",
+      "deleteAppDataOnUninstall": false
     },
     "portable": {
       "artifactName": "${productName}-Portable-${version}.${ext}"
